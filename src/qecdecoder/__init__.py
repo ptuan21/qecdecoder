@@ -1,2 +1,3 @@
-def main() -> None:
-    print("Hello from qecdecoder!")
+from qecdecoder.cli import main
+
+__all__ = ["main"]

@@ -6,6 +6,9 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
-# Experiment outputs can be large / non-deterministic; keep configs, not raw results.
+# Experiment outputs can be large / non-deterministic; keep configs, not raw
+# results -- except milestone results referenced from the README.
 experiments/results/*
 !experiments/results/.gitkeep
+!experiments/results/phase2_mwpm_sweep.csv
+!experiments/results/phase2_mwpm_sweep.png
