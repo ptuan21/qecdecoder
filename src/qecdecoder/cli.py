@@ -8,10 +8,12 @@ from pathlib import Path
 from typing import Sequence
 
 import matplotlib.pyplot as plt
+import torch
 import yaml
 
 from qecdecoder.benchmark import estimate_crossing_point
-from qecdecoder.sweep import SweepPoint, run_mwpm_sweep
+from qecdecoder.sweep import SweepPoint, run_mwpm_sweep, run_sweep
+from qecdecoder.train import TrainConfig, make_gnn_decode_fn, train_gnn_decoder
 
 
 def _run_sweep_command(args: argparse.Namespace) -> None:
@@ -109,6 +111,120 @@ def _plot(points: Sequence[SweepPoint], path: Path) -> None:
     plt.close(fig)
 
 
+def _run_gnn_benchmark_command(args: argparse.Namespace) -> None:
+    with open(args.config) as f:
+        config = yaml.safe_load(f)
+
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    rounds = config.get("rounds", 1)
+    seed = config.get("seed", 0)
+    eval_physical_error_rates = config["eval_physical_error_rates"]
+    num_eval_shots = config["num_eval_shots"]
+    device = _resolve_device(args.device)
+    print(f"Using device: {device}")
+
+    series: dict[str, list[SweepPoint]] = {}
+    for distance in config["distances"]:
+        train_config = TrainConfig(
+            distance=distance,
+            physical_error_rate=config["train_physical_error_rate"],
+            rounds=rounds,
+            num_train_shots=config.get("num_train_shots", 50_000),
+            num_val_shots=config.get("num_val_shots", 10_000),
+            hidden_channels=config.get("hidden_channels", 32),
+            num_layers=config.get("num_layers", 3),
+            batch_size=config.get("batch_size", 512),
+            epochs=config.get("epochs", 15),
+            learning_rate=config.get("learning_rate", 1e-3),
+            seed=seed,
+        )
+        print(f"Training GNN for d={distance} at p={train_config.physical_error_rate}...")
+        result = train_gnn_decoder(train_config, device=device)
+        print(f"  final val logical error rate: {result.val_logical_error_rate:.4f}")
+        torch.save(result.model.state_dict(), output_dir / f"{args.name}_d{distance}_gnn.pt")
+
+        gnn_decode_fn = make_gnn_decode_fn(result.model, device=device)
+        series[f"GNN d={distance}"] = run_sweep(
+            gnn_decode_fn,
+            [distance],
+            eval_physical_error_rates,
+            num_eval_shots,
+            rounds=rounds,
+            seed=seed + 1_000,
+        )
+        series[f"MWPM d={distance}"] = run_mwpm_sweep(
+            [distance], eval_physical_error_rates, num_eval_shots, rounds=rounds, seed=seed + 2_000
+        )
+
+    _write_labeled_csv(series, output_dir / f"{args.name}.csv")
+    _plot_labeled(series, output_dir / f"{args.name}.png")
+    print(f"Wrote {output_dir}/{args.name}.{{csv,png}}")
+
+
+def _resolve_device(device_arg: str) -> torch.device:
+    if device_arg == "auto":
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    return torch.device(device_arg)
+
+
+def _write_labeled_csv(series: dict[str, list[SweepPoint]], path: Path) -> None:
+    with open(path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(
+            [
+                "decoder",
+                "distance",
+                "physical_error_rate",
+                "logical_error_rate",
+                "ci_low",
+                "ci_high",
+                "num_shots",
+            ]
+        )
+        for label, points in series.items():
+            for point in points:
+                writer.writerow(
+                    [
+                        label,
+                        point.distance,
+                        point.physical_error_rate,
+                        point.logical_error_rate,
+                        point.ci_low,
+                        point.ci_high,
+                        point.num_shots,
+                    ]
+                )
+
+
+def _plot_labeled(series: dict[str, list[SweepPoint]], path: Path) -> None:
+    fig, ax = plt.subplots()
+    for label, points in series.items():
+        subset = sorted(points, key=lambda point: point.physical_error_rate)
+        xs = [point.physical_error_rate for point in subset]
+        ys = [point.logical_error_rate for point in subset]
+        y_err_low = [point.logical_error_rate - point.ci_low for point in subset]
+        y_err_high = [point.ci_high - point.logical_error_rate for point in subset]
+        linestyle = "--" if label.startswith("GNN") else "-"
+        ax.errorbar(
+            xs,
+            ys,
+            yerr=[y_err_low, y_err_high],
+            label=label,
+            marker="o",
+            capsize=3,
+            linestyle=linestyle,
+        )
+    ax.set_xlabel("physical error rate (depolarizing p)")
+    ax.set_ylabel("logical error rate")
+    ax.set_yscale("log")
+    ax.legend()
+    ax.set_title("Rotated surface code: GNN vs MWPM")
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="qecdecoder")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -127,6 +243,28 @@ def main() -> None:
         "--name", type=str, default="sweep", help="Base filename for output CSV/plot."
     )
     sweep_parser.set_defaults(func=_run_sweep_command)
+
+    gnn_parser = subparsers.add_parser(
+        "gnn-benchmark",
+        help="Train a GNN decoder per distance and benchmark it against MWPM.",
+    )
+    gnn_parser.add_argument("config", type=str, help="Path to a GNN benchmark config YAML file.")
+    gnn_parser.add_argument(
+        "--output-dir",
+        type=str,
+        default="experiments/results",
+        help="Directory to write CSV/plot/model checkpoint output.",
+    )
+    gnn_parser.add_argument(
+        "--name", type=str, default="gnn_benchmark", help="Base filename for output CSV/plot."
+    )
+    gnn_parser.add_argument(
+        "--device",
+        type=str,
+        default="auto",
+        help="torch device: 'auto' (use cuda if available), 'cpu', or 'cuda'.",
+    )
+    gnn_parser.set_defaults(func=_run_gnn_benchmark_command)
 
     args = parser.parse_args()
     args.func(args)

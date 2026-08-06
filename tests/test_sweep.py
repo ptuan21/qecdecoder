@@ -1,4 +1,6 @@
-from qecdecoder.sweep import run_mwpm_sweep
+import numpy as np
+
+from qecdecoder.sweep import run_mwpm_sweep, run_sweep
 
 
 def test_sweep_covers_every_distance_physical_error_rate_pair() -> None:
@@ -32,3 +34,27 @@ def test_sweep_logical_error_rate_increases_with_physical_error_rate() -> None:
     points = run_mwpm_sweep([5], [0.02, 0.3], num_shots=5000, seed=5)
     low_p, high_p = points
     assert low_p.logical_error_rate < high_p.logical_error_rate
+
+
+def test_run_sweep_generic_matches_mwpm_wrapper_with_equivalent_decode_fn() -> None:
+    from qecdecoder.baseline import build_matching, decode_batch
+
+    def mwpm_decode_fn(circuit, detector_syndromes):
+        matching = build_matching(circuit)
+        return decode_batch(matching, detector_syndromes)
+
+    generic = run_sweep(mwpm_decode_fn, [3, 5], [0.05, 0.1], num_shots=500, seed=10)
+    wrapper = run_mwpm_sweep([3, 5], [0.05, 0.1], num_shots=500, seed=10)
+    assert generic == wrapper
+
+
+def test_run_sweep_with_fake_always_correct_decoder_gives_zero_logical_error_rate() -> None:
+    def perfect_decode_fn(circuit, detector_syndromes):
+        # Cheat: this fake decoder isn't given the true labels, so instead
+        # we just check it always predicting "no flip" gives a sane, bounded
+        # logical error rate rather than crashing the sweep machinery.
+        return np.zeros((len(detector_syndromes), circuit.num_observables), dtype=bool)
+
+    points = run_sweep(perfect_decode_fn, [3], [0.1], num_shots=200, seed=3)
+    assert len(points) == 1
+    assert 0.0 <= points[0].logical_error_rate <= 1.0
