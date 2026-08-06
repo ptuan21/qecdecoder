@@ -34,11 +34,12 @@ a meaningfully stronger signal than the original 2-distance estimate.
 
 Reproduce: `uv run qecdecoder sweep experiments/configs/phase2_mwpm_sweep.yaml --name phase2_mwpm_sweep`
 
-**Phase 3 complete (v1)**: a GNN decoder (message passing over the decoding
+**Phase 3 complete**: a GNN decoder (message passing over the decoding
 graph derived from Stim's `DetectorErrorModel`, PyTorch Geometric),
-benchmarked against the same MWPM baseline on the same d=3/d=5 grid:
+benchmarked against the same MWPM baseline, now on d=3, 5, 7, 9 (extended
+from d=3,5 in Phase 5):
 
-![GNN vs MWPM: logical error rate vs physical error rate for d=3 and d=5](experiments/results/phase3_gnn_benchmark.png)
+![GNN vs MWPM: logical error rate vs physical error rate for d=3,5,7,9](experiments/results/phase3_gnn_benchmark.png)
 
 GNN d=3 essentially matches MWPM across the whole range, including
 physical error rates it never saw during training. GNN d=5 is consistently
@@ -54,14 +55,29 @@ deliberately leaving several eval-grid points out as an
 interpolation/extrapolation check) so the model learns a rate-conditioned
 decision boundary from the DEM edge weights instead of overfitting to one
 noise level's syndrome statistics. That single change took d=5 from
-"unusable, non-monotonic" to "smooth, modestly behind MWPM" -- the plot
-above is the fixed version.
+"unusable, non-monotonic" to "smooth, modestly behind MWPM".
 
 One real edge case found and fixed along the way: at `physical_error_rate
 == 0` there are no error mechanisms at all, so the decoding graph has zero
 edges -- entirely out-of-distribution for a model trained on graphs that do
 have edges. The decoder now special-cases this to the only correct answer
 ("no flip") instead of running the model on a degenerate graph.
+
+**Phase 5 finding**: d=7 and d=9 expose a real scaling limit. The gap
+between GNN and MWPM, already present at d=5, grows sharply with distance
+at *low* physical error rate -- at p=0.02, GNN d=7 is ~1000x worse than
+MWPM (0.045 vs 0.00004), and GNN d=9 is ~4500x worse (0.09 vs 0.00002),
+while at high p (0.26) the gap stays modest (~1.3x for both). Same
+training budget (5 rates x 50k shots x 20 epochs) was used at every
+distance, so this isn't a new bug -- it's the training budget not scaling
+with the harder, higher-dimensional decision boundary larger distances
+need. Concretely: at low noise the correct answer is almost always "no
+flip", and telling apart the many subtly-different low-activity syndrome
+patterns that still mean "no flip" from the rare ones that don't gets
+combinatorially harder as distance grows, without proportionally more
+low-signal training examples to learn that boundary from. Scaling the
+training budget (or shots specifically at low p) with distance is the
+natural next fix, not something to paper over.
 
 Reproduce (GPU strongly recommended -- see below):
 `qecdecoder gnn-benchmark experiments/configs/phase3_gnn_benchmark.yaml --device cuda --name phase3_gnn_benchmark`
@@ -100,8 +116,9 @@ something to paper over.
 `noise_model` so the same MWPM/GNN infrastructure works for either noise
 model without duplicating code.
 
-**Next**: circuit-level noise at d=5 (compute permitting), larger
-distances generally, and writing up the benchmark as a preprint.
+**Next**: address the low-p scaling gap found at d=7/d=9 (training budget
+that scales with distance), circuit-level noise at d=5 and d=7 (compute
+permitting), and writing up the benchmark as a preprint.
 
 See `.claude/plans/` (or ask) for the full roadmap.
 
