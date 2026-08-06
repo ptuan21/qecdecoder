@@ -32,11 +32,59 @@ for that -- future work).
 
 Reproduce: `uv run qecdecoder sweep experiments/configs/phase2_mwpm_sweep.yaml --name phase2_mwpm_sweep`
 
-**Next**: Phase 3, training a GNN decoder on the decoding graph derived
-from Stim's `DetectorErrorModel` and benchmarking it against this MWPM
-baseline.
+**Phase 3 complete (v1)**: a GNN decoder (message passing over the decoding
+graph derived from Stim's `DetectorErrorModel`, PyTorch Geometric),
+benchmarked against the same MWPM baseline on the same d=3/d=5 grid:
+
+![GNN vs MWPM: logical error rate vs physical error rate for d=3 and d=5](experiments/results/phase3_gnn_benchmark.png)
+
+GNN d=3 essentially matches MWPM across the whole range, including
+physical error rates it never saw during training. GNN d=5 is consistently
+a bit behind MWPM but tracks it smoothly and monotonically.
+
+That "smoothly" is the interesting part: the first version of this model
+was trained at a single physical error rate (p=0.10) and generalized badly
+away from it -- for d=5 the logical-error-rate-vs-p curve was
+*non-monotonic* (worse at p=0.06 than at p=0.10), reproduced identically on
+both CPU and a Colab GPU run, ruling out randomness. The fix was training
+across multiple physical error rates (`[0.04, 0.08, 0.12, 0.18, 0.24]`,
+deliberately leaving several eval-grid points out as an
+interpolation/extrapolation check) so the model learns a rate-conditioned
+decision boundary from the DEM edge weights instead of overfitting to one
+noise level's syndrome statistics. That single change took d=5 from
+"unusable, non-monotonic" to "smooth, modestly behind MWPM" -- the plot
+above is the fixed version.
+
+One real edge case found and fixed along the way: at `physical_error_rate
+== 0` there are no error mechanisms at all, so the decoding graph has zero
+edges -- entirely out-of-distribution for a model trained on graphs that do
+have edges. The decoder now special-cases this to the only correct answer
+("no flip") instead of running the model on a degenerate graph.
+
+Reproduce (GPU strongly recommended -- see below):
+`qecdecoder gnn-benchmark experiments/configs/phase3_gnn_benchmark.yaml --device cuda --name phase3_gnn_benchmark`
+
+**Next**: Phase 4 -- circuit-level noise, larger distances, and writing up
+the benchmark as a preprint.
 
 See `.claude/plans/` (or ask) for the full roadmap.
+
+### Training on a GPU (Google Colab)
+
+The GNN trains fine on CPU but a lot faster on GPU. To use a free Colab
+T4:
+
+```python
+!git clone https://github.com/ptuan21/qecdecoder.git
+%cd qecdecoder
+# Colab already ships CUDA-enabled torch -- don't reinstall it.
+!pip install -q stim pymatching torch_geometric pyyaml matplotlib
+!pip install -q -e . --no-deps
+
+!qecdecoder gnn-benchmark experiments/configs/phase3_gnn_benchmark.yaml --device cuda --name phase3_gnn_benchmark
+```
+
+`--device` accepts `auto` (default, uses CUDA if available), `cpu`, or `cuda`.
 
 ## Stack
 
@@ -60,9 +108,12 @@ src/qecdecoder/
   noise.py        # noise-model helpers (code-capacity depolarizing noise)
   simulate.py      # syndrome + logical-observable sampling
   baseline.py       # PyMatching MWPM wrapper
+  graph.py            # decoding graph from a circuit's DetectorErrorModel
+  model.py             # GNNDecoder (PyTorch Geometric) + syndrome batching
+  train.py              # multi-rate training loop + trained model as a decoder
   benchmark.py       # empirical/theoretical logical error rate, CIs, threshold estimate
-  sweep.py            # sweep MWPM over (distance, physical_error_rate)
-  cli.py                # `qecdecoder sweep <config.yaml>` -> CSV + plot
+  sweep.py            # sweep any decoder over (distance, physical_error_rate)
+  cli.py                # `qecdecoder sweep|gnn-benchmark <config.yaml>` -> CSV + plot
 tests/             # one test module per src module, plus integration tests
 experiments/configs/  # per-experiment YAML configs (reproducibility)
 experiments/results/  # experiment outputs (gitignored except README figures)
