@@ -1,7 +1,11 @@
 # Phase 2 milestone: MWPM baseline on the rotated surface code under
 # code-capacity-style depolarizing noise. Establishes the baseline curve
 # the Phase 3 GNN decoder will be benchmarked against.
-distances: [3, 5]
+# Phase 5: extended from [3, 5] to [3, 5, 7, 9] -- code-capacity graphs
+# stay small at these distances (d=9 is still only 80 detectors), so more
+# distances are cheap and give a sharper threshold estimate (3 adjacent
+# crossing points instead of 1).
+distances: [3, 5, 7, 9]
 physical_error_rates: [0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.15, 0.18, 0.22, 0.26]
 num_shots: 50000
 rounds: 1

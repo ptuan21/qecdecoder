@@ -18,17 +18,19 @@ MWPM decoding is provably optimal and reduces to majority vote). This gives
 confidence the pipeline is correct before moving to the surface code, where
 no simple closed form exists.
 
-**Phase 2 complete**: MWPM baseline on the rotated surface code (d=3, d=5)
-under code-capacity-style depolarizing noise. Logical error rate vs.
-physical error rate, with Wilson-interval error bars:
+**Phase 2 complete**: MWPM baseline on the rotated surface code (d=3, 5, 7,
+9 -- extended from just d=3,5 in Phase 5, since code-capacity graphs stay
+small even at d=9) under code-capacity-style depolarizing noise. Logical
+error rate vs. physical error rate, with Wilson-interval error bars:
 
-![MWPM baseline: logical error rate vs physical error rate for d=3 and d=5](experiments/results/phase2_mwpm_sweep.png)
+![MWPM baseline: logical error rate vs physical error rate for d=3,5,7,9](experiments/results/phase2_mwpm_sweep.png)
 
-The d=3/d=5 curves cross at p ~ 0.14 -- below that, the larger code
-outperforms the smaller one (as expected below threshold); above it, the
-ordering flips. This crossing-point estimate is a quick visual-threshold
-check, not a rigorous finite-size-scaling fit (more distances/shots needed
-for that -- future work).
+All 4 curves cross close to the same point, p ~ 0.135-0.147 depending on
+which adjacent pair you look at -- below that, larger codes outperform
+smaller ones (as expected below threshold); above it, the ordering flips.
+This crossing-point estimate is a quick visual-threshold check, not a
+rigorous finite-size-scaling fit, but 4 distances agreeing this closely is
+a meaningfully stronger signal than the original 2-distance estimate.
 
 Reproduce: `uv run qecdecoder sweep experiments/configs/phase2_mwpm_sweep.yaml --name phase2_mwpm_sweep`
 
