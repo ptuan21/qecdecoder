@@ -64,9 +64,9 @@ have edges. The decoder now special-cases this to the only correct answer
 Reproduce (GPU strongly recommended -- see below):
 `qecdecoder gnn-benchmark experiments/configs/phase3_gnn_benchmark.yaml --device cuda --name phase3_gnn_benchmark`
 
-**Phase 4a in progress**: circuit-level noise (gate, idle, measurement, and
-reset errors, not just data-qubit noise) -- a much more realistic threat
-model than Phase 2/3's code-capacity noise. MWPM baseline done:
+**Phase 4a complete (v1)**: circuit-level noise (gate, idle, measurement,
+and reset errors, not just data-qubit noise) -- a much more realistic
+threat model than Phase 2/3's code-capacity noise. MWPM baseline:
 
 ![MWPM baseline under circuit-level noise: logical error rate vs physical error rate for d=3 and d=5](experiments/results/phase4_circuit_mwpm_sweep.png)
 
@@ -78,14 +78,28 @@ kind of uniform circuit noise model.
 
 Reproduce: `uv run qecdecoder sweep experiments/configs/phase4_circuit_mwpm_sweep.yaml --name phase4_circuit_mwpm_sweep`
 
-GNN benchmark on circuit-level noise is next (d=3 only for v1 -- these
-decoding graphs are ~15x bigger than Phase 3's, needs a GPU run on Colab;
-see below). `codes.py`, `sweep.py`, and `train.py` now take a
-`circuit_builder`/`noise_model` so the same MWPM/GNN infrastructure works
-for either noise model without duplicating code.
+GNN vs MWPM (d=3, trained on a much smaller budget than Phase 3 -- 3
+physical error rates x 20k shots x 12 epochs, since these decoding graphs
+are ~15x bigger):
 
-**Next**: finish Phase 4a (GNN vs MWPM under circuit-level noise), then
-larger distances and writing up the benchmark as a preprint.
+![GNN vs MWPM under circuit-level noise: logical error rate vs physical error rate for d=3](experiments/results/phase4_gnn_benchmark.png)
+
+Unlike Phase 3's code-capacity result, the GNN is consistently behind MWPM
+here (roughly 1.7-2x worse through most of the range, weaker still at the
+lowest physical error rate) rather than matching it -- but the curve is
+smooth and essentially monotonic, i.e. no repeat of the single-rate
+non-monotonic failure from Phase 3. The gap is a plausible, honest v1
+result given the much smaller training budget relative to graph size, not
+a repeat of a known bug; closing it (bigger model, more shots/epochs, or
+specifically targeting the low-p weakness) is future work rather than
+something to paper over.
+
+`codes.py`, `sweep.py`, and `train.py` now take a `circuit_builder`/
+`noise_model` so the same MWPM/GNN infrastructure works for either noise
+model without duplicating code.
+
+**Next**: circuit-level noise at d=5 (compute permitting), larger
+distances generally, and writing up the benchmark as a preprint.
 
 See `.claude/plans/` (or ask) for the full roadmap.
 
