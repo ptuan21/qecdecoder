@@ -1,17 +1,19 @@
-# Phase 3 milestone: train a GNN decoder per distance (at a single physical
-# error rate near the Phase 2-measured threshold ~0.14), then evaluate it
-# across the same physical-error-rate grid as Phase 2's MWPM sweep so the
-# two decoders are directly comparable.
+# Phase 3 milestone (v2): train a GNN decoder per distance across several
+# physical error rates (not just one) so it learns a rate-conditioned
+# decision boundary via the DEM edge weights, instead of overfitting to a
+# single noise level. Deliberately leaves some eval_physical_error_rates
+# points out of the training set (0.02, 0.06, 0.10, 0.15, 0.22, 0.26) as an
+# interpolation/extrapolation generalization check.
 distances: [3, 5]
-train_physical_error_rate: 0.10
+train_physical_error_rates: [0.04, 0.08, 0.12, 0.18, 0.24]
 eval_physical_error_rates: [0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.15, 0.18, 0.22, 0.26]
-num_train_shots: 50000
-num_val_shots: 10000
+num_train_shots_per_rate: 50000
+num_val_shots_per_rate: 2000
 num_eval_shots: 50000
 hidden_channels: 32
 num_layers: 3
 batch_size: 512
-epochs: 15
+epochs: 20
 learning_rate: 0.001
 rounds: 1
 seed: 2026

@@ -8,9 +8,9 @@ from qecdecoder.simulate import sample_dataset
 def _tiny_config(**overrides) -> TrainConfig:
     defaults = dict(
         distance=3,
-        physical_error_rate=0.15,
-        num_train_shots=300,
-        num_val_shots=100,
+        physical_error_rates=[0.1, 0.2],
+        num_train_shots_per_rate=150,
+        num_val_shots_per_rate=50,
         hidden_channels=8,
         num_layers=2,
         batch_size=64,

@@ -129,10 +129,10 @@ def _run_gnn_benchmark_command(args: argparse.Namespace) -> None:
     for distance in config["distances"]:
         train_config = TrainConfig(
             distance=distance,
-            physical_error_rate=config["train_physical_error_rate"],
+            physical_error_rates=config["train_physical_error_rates"],
             rounds=rounds,
-            num_train_shots=config.get("num_train_shots", 50_000),
-            num_val_shots=config.get("num_val_shots", 10_000),
+            num_train_shots_per_rate=config.get("num_train_shots_per_rate", 50_000),
+            num_val_shots_per_rate=config.get("num_val_shots_per_rate", 2_000),
             hidden_channels=config.get("hidden_channels", 32),
             num_layers=config.get("num_layers", 3),
             batch_size=config.get("batch_size", 512),
@@ -140,7 +140,7 @@ def _run_gnn_benchmark_command(args: argparse.Namespace) -> None:
             learning_rate=config.get("learning_rate", 1e-3),
             seed=seed,
         )
-        print(f"Training GNN for d={distance} at p={train_config.physical_error_rate}...")
+        print(f"Training GNN for d={distance} at p={list(train_config.physical_error_rates)}...")
         result = train_gnn_decoder(train_config, device=device)
         print(f"  final val logical error rate: {result.val_logical_error_rate:.4f}")
         torch.save(result.model.state_dict(), output_dir / f"{args.name}_d{distance}_gnn.pt")
