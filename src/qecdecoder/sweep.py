@@ -18,6 +18,9 @@ from qecdecoder.simulate import sample_dataset
 DecodeFn = Callable[[stim.Circuit, np.ndarray], np.ndarray]
 """A decoder: (circuit, detector_syndromes) -> predicted observable flips."""
 
+CircuitBuilder = Callable[[int, int, float], stim.Circuit]
+"""(distance, rounds, physical_error_rate) -> circuit, e.g. rotated_surface_code_circuit."""
+
 
 @dataclass(frozen=True)
 class SweepPoint:
@@ -39,20 +42,21 @@ def run_sweep(
     *,
     rounds: int = 1,
     seed: int | None = None,
+    circuit_builder: CircuitBuilder = rotated_surface_code_circuit,
 ) -> list[SweepPoint]:
     """Run `decode_fn` over every (distance, physical_error_rate) pair.
 
-    Uses a rotated surface code with code-capacity-style depolarizing
-    noise. Each (distance, physical_error_rate) combination gets its own
-    seeded sample so results are reproducible.
+    Each (distance, physical_error_rate) combination gets its own seeded
+    sample so results are reproducible. `circuit_builder` defaults to the
+    code-capacity-style rotated surface code; pass a different builder
+    (e.g. `codes.rotated_surface_code_circuit_level_noise`) for other noise
+    models.
     """
     points: list[SweepPoint] = []
     combo_index = 0
     for distance in distances:
         for physical_error_rate in physical_error_rates:
-            circuit = rotated_surface_code_circuit(
-                distance=distance, rounds=rounds, physical_error_rate=physical_error_rate
-            )
+            circuit = circuit_builder(distance, rounds, physical_error_rate)
             shot_seed = None if seed is None else seed + combo_index
             combo_index += 1
             dataset = sample_dataset(circuit, num_shots=num_shots, seed=shot_seed)
@@ -89,8 +93,15 @@ def run_mwpm_sweep(
     *,
     rounds: int = 1,
     seed: int | None = None,
+    circuit_builder: CircuitBuilder = rotated_surface_code_circuit,
 ) -> list[SweepPoint]:
     """Run the MWPM baseline over every (distance, physical_error_rate) pair."""
     return run_sweep(
-        _mwpm_decode_fn, distances, physical_error_rates, num_shots, rounds=rounds, seed=seed
+        _mwpm_decode_fn,
+        distances,
+        physical_error_rates,
+        num_shots,
+        rounds=rounds,
+        seed=seed,
+        circuit_builder=circuit_builder,
     )

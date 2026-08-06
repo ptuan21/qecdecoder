@@ -12,21 +12,48 @@ import torch
 import yaml
 
 from qecdecoder.benchmark import estimate_crossing_point
-from qecdecoder.sweep import SweepPoint, run_mwpm_sweep, run_sweep
+from qecdecoder.codes import rotated_surface_code_circuit, rotated_surface_code_circuit_level_noise
+from qecdecoder.sweep import CircuitBuilder, SweepPoint, run_mwpm_sweep, run_sweep
 from qecdecoder.train import TrainConfig, make_gnn_decode_fn, train_gnn_decoder
+
+_CIRCUIT_BUILDERS: dict[str, CircuitBuilder] = {
+    "code_capacity": rotated_surface_code_circuit,
+    "circuit_level": rotated_surface_code_circuit_level_noise,
+}
+
+
+def _resolve_circuit_builder(config: dict) -> CircuitBuilder:
+    noise_model = config.get("noise_model", "code_capacity")
+    try:
+        return _CIRCUIT_BUILDERS[noise_model]
+    except KeyError:
+        raise ValueError(
+            f"unknown noise_model {noise_model!r}, expected one of {sorted(_CIRCUIT_BUILDERS)}"
+        ) from None
+
+
+def _resolve_rounds(config: dict, distance: int) -> int:
+    """A config-specified `rounds` applies to every distance (Phase 2/3
+    behavior). Without one, default to rounds == distance -- the standard
+    "memory experiment" convention for circuit-level noise."""
+    return config["rounds"] if "rounds" in config else distance
 
 
 def _run_sweep_command(args: argparse.Namespace) -> None:
     with open(args.config) as f:
         config = yaml.safe_load(f)
 
-    points = run_mwpm_sweep(
-        distances=config["distances"],
-        physical_error_rates=config["physical_error_rates"],
-        num_shots=config["num_shots"],
-        rounds=config.get("rounds", 1),
-        seed=config.get("seed"),
-    )
+    circuit_builder = _resolve_circuit_builder(config)
+    points: list[SweepPoint] = []
+    for distance in config["distances"]:
+        points += run_mwpm_sweep(
+            [distance],
+            config["physical_error_rates"],
+            config["num_shots"],
+            rounds=_resolve_rounds(config, distance),
+            seed=config.get("seed"),
+            circuit_builder=circuit_builder,
+        )
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -118,15 +145,16 @@ def _run_gnn_benchmark_command(args: argparse.Namespace) -> None:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    rounds = config.get("rounds", 1)
     seed = config.get("seed", 0)
     eval_physical_error_rates = config["eval_physical_error_rates"]
     num_eval_shots = config["num_eval_shots"]
+    circuit_builder = _resolve_circuit_builder(config)
     device = _resolve_device(args.device)
     print(f"Using device: {device}")
 
     series: dict[str, list[SweepPoint]] = {}
     for distance in config["distances"]:
+        rounds = _resolve_rounds(config, distance)
         train_config = TrainConfig(
             distance=distance,
             physical_error_rates=config["train_physical_error_rates"],
@@ -140,8 +168,11 @@ def _run_gnn_benchmark_command(args: argparse.Namespace) -> None:
             learning_rate=config.get("learning_rate", 1e-3),
             seed=seed,
         )
-        print(f"Training GNN for d={distance} at p={list(train_config.physical_error_rates)}...")
-        result = train_gnn_decoder(train_config, device=device)
+        print(
+            f"Training GNN for d={distance} (rounds={rounds}) "
+            f"at p={list(train_config.physical_error_rates)}..."
+        )
+        result = train_gnn_decoder(train_config, device=device, circuit_builder=circuit_builder)
         print(f"  final val logical error rate: {result.val_logical_error_rate:.4f}")
         torch.save(result.model.state_dict(), output_dir / f"{args.name}_d{distance}_gnn.pt")
 
@@ -153,9 +184,15 @@ def _run_gnn_benchmark_command(args: argparse.Namespace) -> None:
             num_eval_shots,
             rounds=rounds,
             seed=seed + 1_000,
+            circuit_builder=circuit_builder,
         )
         series[f"MWPM d={distance}"] = run_mwpm_sweep(
-            [distance], eval_physical_error_rates, num_eval_shots, rounds=rounds, seed=seed + 2_000
+            [distance],
+            eval_physical_error_rates,
+            num_eval_shots,
+            rounds=rounds,
+            seed=seed + 2_000,
+            circuit_builder=circuit_builder,
         )
 
     _write_labeled_csv(series, output_dir / f"{args.name}.csv")

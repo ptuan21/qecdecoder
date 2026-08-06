@@ -1,0 +1,19 @@
+# Phase 4a: GNN vs MWPM under circuit-level noise. v1 scope is d=3 only --
+# circuit-level graphs are much bigger than Phase 3's code-capacity ones
+# (d=3/rounds=3 has ~556 decoding-graph edges vs Phase 3's ~40), so this
+# needs a GPU (see README "Training on a GPU"). d=5 is left out of v1
+# pending real timing data from a Colab run; add it back to `distances`
+# once that's known.
+noise_model: circuit_level
+distances: [3]
+train_physical_error_rates: [0.003, 0.006, 0.01]
+eval_physical_error_rates: [0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.008, 0.01, 0.015, 0.02]
+num_train_shots_per_rate: 20000
+num_val_shots_per_rate: 2000
+num_eval_shots: 50000
+hidden_channels: 32
+num_layers: 3
+batch_size: 512
+epochs: 12
+learning_rate: 0.001
+seed: 2026

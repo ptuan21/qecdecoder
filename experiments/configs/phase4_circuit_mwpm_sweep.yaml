@@ -1,0 +1,13 @@
+# Phase 4a: MWPM baseline under realistic circuit-level noise (gate,
+# idle, measurement, and reset errors all at the same rate), rather than
+# Phase 2's code-capacity model (data-qubit noise only, perfect syndrome
+# measurement). rounds is left unset so it defaults to rounds == distance
+# (the standard "memory experiment" convention). A quick pre-check found
+# the code-capacity/circuit-level threshold here around p ~ 0.006-0.007,
+# roughly 10x lower than Phase 2's ~0.14 -- physical_error_rates below
+# brackets that.
+noise_model: circuit_level
+distances: [3, 5]
+physical_error_rates: [0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.008, 0.01, 0.015, 0.02]
+num_shots: 50000
+seed: 2026

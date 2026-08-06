@@ -1,5 +1,6 @@
 import numpy as np
 
+from qecdecoder.codes import repetition_code_circuit, rotated_surface_code_circuit
 from qecdecoder.sweep import run_mwpm_sweep, run_sweep
 
 
@@ -58,3 +59,30 @@ def test_run_sweep_with_fake_always_correct_decoder_gives_zero_logical_error_rat
     points = run_sweep(perfect_decode_fn, [3], [0.1], num_shots=200, seed=3)
     assert len(points) == 1
     assert 0.0 <= points[0].logical_error_rate <= 1.0
+
+
+def test_run_sweep_uses_custom_circuit_builder() -> None:
+    calls = []
+
+    def spy_builder(distance, rounds, physical_error_rate):
+        calls.append((distance, rounds, physical_error_rate))
+        return repetition_code_circuit(distance, rounds, physical_error_rate)
+
+    def mwpm_decode_fn(circuit, detector_syndromes):
+        from qecdecoder.baseline import build_matching, decode_batch
+
+        return decode_batch(build_matching(circuit), detector_syndromes)
+
+    points = run_sweep(
+        mwpm_decode_fn, [5], [0.1], num_shots=100, seed=1, circuit_builder=spy_builder
+    )
+    assert calls == [(5, 1, 0.1)]
+    assert len(points) == 1
+
+
+def test_run_sweep_default_circuit_builder_is_rotated_surface_code() -> None:
+    points_default = run_mwpm_sweep([3], [0.1], num_shots=300, seed=4)
+    points_explicit = run_mwpm_sweep(
+        [3], [0.1], num_shots=300, seed=4, circuit_builder=rotated_surface_code_circuit
+    )
+    assert points_default == points_explicit

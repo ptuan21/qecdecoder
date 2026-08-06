@@ -19,7 +19,7 @@ from qecdecoder.codes import rotated_surface_code_circuit
 from qecdecoder.graph import DecodingGraph, build_decoding_graph
 from qecdecoder.model import GNNDecoder, syndromes_to_model_inputs
 from qecdecoder.simulate import SampledDataset, sample_dataset
-from qecdecoder.sweep import DecodeFn
+from qecdecoder.sweep import CircuitBuilder, DecodeFn
 
 
 @dataclass(frozen=True)
@@ -67,13 +67,23 @@ class _RateData:
     val_data: SampledDataset
 
 
-def train_gnn_decoder(config: TrainConfig, *, device: torch.device | None = None) -> TrainResult:
-    """Train a GNNDecoder across all of `config.physical_error_rates`."""
+def train_gnn_decoder(
+    config: TrainConfig,
+    *,
+    device: torch.device | None = None,
+    circuit_builder: CircuitBuilder = rotated_surface_code_circuit,
+) -> TrainResult:
+    """Train a GNNDecoder across all of `config.physical_error_rates`.
+
+    `circuit_builder` defaults to the code-capacity-style rotated surface
+    code; pass a different builder (e.g.
+    `codes.rotated_surface_code_circuit_level_noise`) for other noise models.
+    """
     device = device or torch.device("cpu")
 
     per_rate: list[_RateData] = []
     for i, physical_error_rate in enumerate(config.physical_error_rates):
-        circuit = rotated_surface_code_circuit(config.distance, config.rounds, physical_error_rate)
+        circuit = circuit_builder(config.distance, config.rounds, physical_error_rate)
         graph = build_decoding_graph(circuit)
         train_data = sample_dataset(
             circuit, config.num_train_shots_per_rate, seed=config.seed + 2 * i

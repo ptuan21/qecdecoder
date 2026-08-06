@@ -16,3 +16,8 @@ experiments/results/*
 !experiments/results/phase3_gnn_benchmark.png
 !experiments/results/phase3_gnn_benchmark_d3_gnn.pt
 !experiments/results/phase3_gnn_benchmark_d5_gnn.pt
+!experiments/results/phase4_circuit_mwpm_sweep.csv
+!experiments/results/phase4_circuit_mwpm_sweep.png
+!experiments/results/phase4_gnn_benchmark.csv
+!experiments/results/phase4_gnn_benchmark.png
+!experiments/results/phase4_gnn_benchmark_d3_gnn.pt

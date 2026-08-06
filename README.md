@@ -64,8 +64,28 @@ have edges. The decoder now special-cases this to the only correct answer
 Reproduce (GPU strongly recommended -- see below):
 `qecdecoder gnn-benchmark experiments/configs/phase3_gnn_benchmark.yaml --device cuda --name phase3_gnn_benchmark`
 
-**Next**: Phase 4 -- circuit-level noise, larger distances, and writing up
-the benchmark as a preprint.
+**Phase 4a in progress**: circuit-level noise (gate, idle, measurement, and
+reset errors, not just data-qubit noise) -- a much more realistic threat
+model than Phase 2/3's code-capacity noise. MWPM baseline done:
+
+![MWPM baseline under circuit-level noise: logical error rate vs physical error rate for d=3 and d=5](experiments/results/phase4_circuit_mwpm_sweep.png)
+
+Threshold ~0.6%, about 20x lower than code-capacity's ~14% -- expected: a
+single circuit-level noise parameter stands in for many more failure
+modes (every gate, every idle step, every measurement) than one
+data-qubit-only channel, and matches literature values (~0.5-1%) for this
+kind of uniform circuit noise model.
+
+Reproduce: `uv run qecdecoder sweep experiments/configs/phase4_circuit_mwpm_sweep.yaml --name phase4_circuit_mwpm_sweep`
+
+GNN benchmark on circuit-level noise is next (d=3 only for v1 -- these
+decoding graphs are ~15x bigger than Phase 3's, needs a GPU run on Colab;
+see below). `codes.py`, `sweep.py`, and `train.py` now take a
+`circuit_builder`/`noise_model` so the same MWPM/GNN infrastructure works
+for either noise model without duplicating code.
+
+**Next**: finish Phase 4a (GNN vs MWPM under circuit-level noise), then
+larger distances and writing up the benchmark as a preprint.
 
 See `.claude/plans/` (or ask) for the full roadmap.
 
@@ -82,6 +102,8 @@ T4:
 !pip install -q -e . --no-deps
 
 !qecdecoder gnn-benchmark experiments/configs/phase3_gnn_benchmark.yaml --device cuda --name phase3_gnn_benchmark
+# or, for circuit-level noise:
+!qecdecoder gnn-benchmark experiments/configs/phase4_gnn_benchmark.yaml --device cuda --name phase4_gnn_benchmark
 ```
 
 `--device` accepts `auto` (default, uses CUDA if available), `cpu`, or `cuda`.

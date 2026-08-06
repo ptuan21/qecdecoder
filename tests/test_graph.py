@@ -1,6 +1,10 @@
 import pytest
 
-from qecdecoder.codes import repetition_code_circuit, rotated_surface_code_circuit
+from qecdecoder.codes import (
+    repetition_code_circuit,
+    rotated_surface_code_circuit,
+    rotated_surface_code_circuit_level_noise,
+)
 from qecdecoder.graph import build_decoding_graph
 
 
@@ -53,6 +57,23 @@ def test_graph_handles_separator_with_multiple_rounds() -> None:
     circuit = rotated_surface_code_circuit(distance=3, rounds=3, physical_error_rate=0.05)
     graph = build_decoding_graph(circuit)
     assert graph.edge_index.shape[1] > 0
+    assert graph.edge_index.min() >= 0
+    assert graph.edge_index.max() < graph.num_nodes
+
+
+def test_graph_from_real_circuit_level_noise_is_graphlike() -> None:
+    """Circuit-level noise (Phase 4a) exercises the separator-splitting path
+    for real, at real scale -- confirm it doesn't raise (would if any
+    component had >2 detectors) and produces a much bigger graph than
+    single-round code-capacity noise, as expected for d=5/rounds=5.
+    """
+    circuit = rotated_surface_code_circuit_level_noise(
+        distance=5, rounds=5, physical_error_rate=0.005
+    )
+    graph = build_decoding_graph(circuit)
+    assert graph.num_detectors == circuit.num_detectors
+    assert graph.num_detectors > 100  # ~120 detectors for d=5/rounds=5
+    assert graph.edge_index.shape[1] > 1000  # many more edges than 1-round graphs
     assert graph.edge_index.min() >= 0
     assert graph.edge_index.max() < graph.num_nodes
 
