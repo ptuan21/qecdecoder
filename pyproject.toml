@@ -1,0 +1,40 @@
+[project]
+name = "qecdecoder"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "ptuan21", email = "bonglongxuyen2k3@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.11.1",
+    "numpy>=2.5.1",
+    "pymatching>=2.4.0",
+    "pyyaml>=6.0.3",
+    "scipy>=1.18.0",
+    "stim>=1.16.0",
+    "torch>=2.13.0",
+    "torch-geometric>=2.8.0.post1",
+]
+
+[project.scripts]
+qecdecoder = "qecdecoder:main"
+
+[build-system]
+requires = ["uv_build>=0.12.1,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+]

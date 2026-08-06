@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Experiment outputs can be large / non-deterministic; keep configs, not raw results.
+experiments/results/*
+!experiments/results/.gitkeep
