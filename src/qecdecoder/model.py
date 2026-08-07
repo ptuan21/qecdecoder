@@ -7,7 +7,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 from torch import nn
-from torch_geometric.nn import TransformerConv, global_mean_pool
+from torch_geometric.nn import TransformerConv, global_add_pool
 
 from qecdecoder.graph import DecodingGraph
 
@@ -44,23 +44,18 @@ class GNNDecoder(nn.Module):
         h = self.input_proj(x)
         for conv, norm in zip(self.convs, self.norms):
             h = torch.relu(norm(h + conv(h, edge_index, edge_attr)))
-        pooled = global_mean_pool(h, batch)
+        # Sum, not mean: at low physical error rates only a handful of
+        # nodes out of num_nodes are informative (fired), and mean pooling
+        # dilutes that signal more as num_nodes grows with distance --
+        # plausibly why d=7/d=9 floored out regardless of training data
+        # volume or model capacity (neither changes how pooling scales).
+        pooled = global_add_pool(h, batch)
         return self.head(pooled).squeeze(-1)
 
 
 def syndromes_to_model_inputs(
     graph: DecodingGraph, detector_syndromes: np.ndarray
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Vectorized conversion of a batch of syndromes into GNNDecoder inputs.
-
-    Builds one graph per shot by replicating `graph`'s fixed topology
-    `batch_size` times with node-id offsets, entirely with numpy -- no
-    per-shot Python loop or `torch_geometric.data.Batch` machinery needed
-    since every shot shares the exact same edge structure.
-
-    Returns (x, edge_index, edge_attr, batch) ready to pass to
-    `GNNDecoder.forward`.
-    """
     batch_size, num_detectors = detector_syndromes.shape
     if num_detectors != graph.num_detectors:
         raise ValueError(

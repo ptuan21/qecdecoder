@@ -84,14 +84,28 @@ complex. Added 0.02 to `train_physical_error_rates` to bracket the full
 eval range and turn that into an interpolation test instead. Result: a
 real but partial improvement -- d=7 at p=0.02 went from ~1125x worse than
 MWPM to ~865x worse (0.0346 vs 0.00004), d=9 from ~4500x to ~3012x (0.0602
-vs 0.00002). Better, but the gap is still enormous, so extrapolation was
-only part of the story: the plot above (already the post-fix version) still
-shows GNN d=7/d=9 essentially flooring out around 0.03-0.06 at low p
-instead of continuing to drop like MWPM does. That flooring is more
-consistent with the model lacking the capacity or training volume to
-represent the larger code's much bigger space of "still no flip" sparse
-syndromes, not a training-range boundary effect. Scaling shots/model size
-with distance is the natural next experiment, not something to paper over.
+vs 0.00002). Better, but the gap is still enormous: GNN d=7/d=9 still
+floored out around 0.03-0.06 at low p instead of continuing to drop like
+MWPM.
+
+**Second follow-up**: hypothesized that floor was the model lacking
+capacity or training volume for the larger code's much bigger space of
+low-activity "still no flip" syndromes -- so `num_train_shots_per_rate`
+(up to 4x) and `hidden_channels` (up to 1.5x) were scaled up specifically
+for d=7/d=9. Result: essentially no change (d=7: 0.0346 -> 0.0319, d=9:
+0.0602 -> 0.0594 at p=0.02) -- ruled out. More data and a bigger model
+through the same architecture didn't move the floor at all, which points
+at the architecture itself rather than its scale.
+
+**Third follow-up (current)**: `GNNDecoder` pools node embeddings with
+`global_mean_pool` before the classification head. At low p only a
+handful of a graph's nodes are "fired" (informative); mean pooling divides
+by the total node count, which grows with distance (9 nodes at d=3, 81 at
+d=9) -- so the same absolute signal gets diluted more as distance grows,
+independent of model capacity or training volume, matching both why the
+floor is worse at larger d and why attempt #2 didn't touch it. Switched to
+`global_add_pool` (sum instead of mean) and reverted shots/hidden_channels
+to the attempt #1 baseline to isolate this one change. Result pending.
 
 Reproduce (GPU strongly recommended -- see below):
 `qecdecoder gnn-benchmark experiments/configs/phase3_gnn_benchmark.yaml --device cuda --name phase3_gnn_benchmark`

@@ -18,27 +18,24 @@
 # partial improvement (~25-33% gap reduction at p=0.02) -- extrapolation
 # was only part of the story.
 #
-# Phase 5 fix attempt #2: the GNN still floors out at low p for d=7/d=9
-# instead of continuing to drop like MWPM, consistent with the model
-# lacking capacity/training volume for the larger code's much bigger space
-# of low-activity "still no flip" syndromes. num_train_shots_per_rate and
-# hidden_channels now scale with distance (d=3/d=5 unchanged, since those
-# already work well) to test that directly.
+# Phase 5 fix attempt #2: hypothesized the floor was a capacity/data-volume
+# issue, so num_train_shots_per_rate (up to 4x) and hidden_channels (up to
+# 1.5x) were scaled up for d=7/d=9. Result: essentially no change (d=7:
+# 0.0346 -> 0.0319, d=9: 0.0602 -> 0.0594 at p=0.02) -- ruled out.
+#
+# Phase 5 fix attempt #3: switched GNNDecoder's pooling from
+# global_mean_pool to global_add_pool (see model.py) -- mean pooling
+# dilutes the signal from the handful of fired nodes more as num_nodes
+# grows with distance, which fits the observed pattern (worse at larger d)
+# better than a capacity/data explanation (which #2 ruled out). Reverted
+# shots/hidden_channels to the attempt #1 baseline to isolate this change.
 distances: [3, 5, 7, 9]
 train_physical_error_rates: [0.02, 0.04, 0.08, 0.12, 0.18, 0.24]
 eval_physical_error_rates: [0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.15, 0.18, 0.22, 0.26]
-num_train_shots_per_rate:
-  3: 50000
-  5: 50000
-  7: 100000
-  9: 200000
+num_train_shots_per_rate: 50000
 num_val_shots_per_rate: 2000
 num_eval_shots: 50000
-hidden_channels:
-  3: 32
-  5: 32
-  7: 40
-  9: 48
+hidden_channels: 32
 num_layers: 3
 batch_size: 512
 epochs: 20
