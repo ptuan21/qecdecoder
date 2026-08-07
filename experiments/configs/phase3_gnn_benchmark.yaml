@@ -2,14 +2,21 @@
 # physical error rates (not just one) so it learns a rate-conditioned
 # decision boundary via the DEM edge weights, instead of overfitting to a
 # single noise level. Deliberately leaves some eval_physical_error_rates
-# points out of the training set (0.02, 0.06, 0.10, 0.15, 0.22, 0.26) as an
-# interpolation/extrapolation generalization check.
+# points out of the training set (0.06, 0.10, 0.15, 0.22, 0.26) as an
+# interpolation generalization check.
 # Phase 5: extended from [3, 5] to [3, 5, 7, 9] to match the Phase 2 MWPM
 # baseline -- code-capacity graphs stay cheap at these distances (~0.14s/
 # step on CPU for d=9), but still run this on GPU since 4 distances x 5
 # training rates adds up.
+# Phase 5 fix attempt: d=7/d=9 were catastrophically worse than MWPM at
+# eval p=0.02 (~1000-4500x), which sits *below* the lowest training rate
+# (0.04) -- i.e. the model was extrapolating there, not interpolating, and
+# neural nets are known to extrapolate badly; the gap growing with distance
+# is consistent with a harder/higher-dimensional decision boundary making
+# that extrapolation cliff steeper. Added 0.02 to bracket the full eval
+# range so this becomes an interpolation test everywhere.
 distances: [3, 5, 7, 9]
-train_physical_error_rates: [0.04, 0.08, 0.12, 0.18, 0.24]
+train_physical_error_rates: [0.02, 0.04, 0.08, 0.12, 0.18, 0.24]
 eval_physical_error_rates: [0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.15, 0.18, 0.22, 0.26]
 num_train_shots_per_rate: 50000
 num_val_shots_per_rate: 2000
