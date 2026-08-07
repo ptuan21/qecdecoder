@@ -75,9 +75,23 @@ need. Concretely: at low noise the correct answer is almost always "no
 flip", and telling apart the many subtly-different low-activity syndrome
 patterns that still mean "no flip" from the rare ones that don't gets
 combinatorially harder as distance grows, without proportionally more
-low-signal training examples to learn that boundary from. Scaling the
-training budget (or shots specifically at low p) with distance is the
-natural next fix, not something to paper over.
+low-signal training examples to learn that boundary from.
+
+**Follow-up experiment**: eval p=0.02 sat *below* every training rate
+(lowest was 0.04) -- purely an extrapolation point, and neural nets are
+known to extrapolate badly, more so as the decision boundary gets more
+complex. Added 0.02 to `train_physical_error_rates` to bracket the full
+eval range and turn that into an interpolation test instead. Result: a
+real but partial improvement -- d=7 at p=0.02 went from ~1125x worse than
+MWPM to ~865x worse (0.0346 vs 0.00004), d=9 from ~4500x to ~3012x (0.0602
+vs 0.00002). Better, but the gap is still enormous, so extrapolation was
+only part of the story: the plot above (already the post-fix version) still
+shows GNN d=7/d=9 essentially flooring out around 0.03-0.06 at low p
+instead of continuing to drop like MWPM does. That flooring is more
+consistent with the model lacking the capacity or training volume to
+represent the larger code's much bigger space of "still no flip" sparse
+syndromes, not a training-range boundary effect. Scaling shots/model size
+with distance is the natural next experiment, not something to paper over.
 
 Reproduce (GPU strongly recommended -- see below):
 `qecdecoder gnn-benchmark experiments/configs/phase3_gnn_benchmark.yaml --device cuda --name phase3_gnn_benchmark`
