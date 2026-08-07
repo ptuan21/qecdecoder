@@ -39,6 +39,19 @@ def _resolve_rounds(config: dict, distance: int) -> int:
     return config["rounds"] if "rounds" in config else distance
 
 
+def _resolve_per_distance(config: dict, key: str, distance: int, default: int) -> int:
+    """A config value can be a single number (applies to every distance,
+    Phase 2-4 behavior) or a {distance: value} mapping for per-distance
+    overrides -- e.g. more training shots/capacity for larger distances
+    that need it. Missing key or missing distance in a mapping both fall
+    back to `default`.
+    """
+    value = config.get(key, default)
+    if isinstance(value, dict):
+        return value.get(distance, default)
+    return value
+
+
 def _run_sweep_command(args: argparse.Namespace) -> None:
     with open(args.config) as f:
         config = yaml.safe_load(f)
@@ -159,17 +172,23 @@ def _run_gnn_benchmark_command(args: argparse.Namespace) -> None:
             distance=distance,
             physical_error_rates=config["train_physical_error_rates"],
             rounds=rounds,
-            num_train_shots_per_rate=config.get("num_train_shots_per_rate", 50_000),
-            num_val_shots_per_rate=config.get("num_val_shots_per_rate", 2_000),
-            hidden_channels=config.get("hidden_channels", 32),
-            num_layers=config.get("num_layers", 3),
+            num_train_shots_per_rate=_resolve_per_distance(
+                config, "num_train_shots_per_rate", distance, 50_000
+            ),
+            num_val_shots_per_rate=_resolve_per_distance(
+                config, "num_val_shots_per_rate", distance, 2_000
+            ),
+            hidden_channels=_resolve_per_distance(config, "hidden_channels", distance, 32),
+            num_layers=_resolve_per_distance(config, "num_layers", distance, 3),
             batch_size=config.get("batch_size", 512),
-            epochs=config.get("epochs", 15),
+            epochs=_resolve_per_distance(config, "epochs", distance, 15),
             learning_rate=config.get("learning_rate", 1e-3),
             seed=seed,
         )
         print(
-            f"Training GNN for d={distance} (rounds={rounds}) "
+            f"Training GNN for d={distance} (rounds={rounds}, "
+            f"shots/rate={train_config.num_train_shots_per_rate}, "
+            f"hidden={train_config.hidden_channels}) "
             f"at p={list(train_config.physical_error_rates)}..."
         )
         result = train_gnn_decoder(train_config, device=device, circuit_builder=circuit_builder)

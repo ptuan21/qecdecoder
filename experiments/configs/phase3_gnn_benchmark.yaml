@@ -8,20 +8,37 @@
 # baseline -- code-capacity graphs stay cheap at these distances (~0.14s/
 # step on CPU for d=9), but still run this on GPU since 4 distances x 5
 # training rates adds up.
-# Phase 5 fix attempt: d=7/d=9 were catastrophically worse than MWPM at
+# Phase 5 fix attempt #1: d=7/d=9 were catastrophically worse than MWPM at
 # eval p=0.02 (~1000-4500x), which sits *below* the lowest training rate
 # (0.04) -- i.e. the model was extrapolating there, not interpolating, and
 # neural nets are known to extrapolate badly; the gap growing with distance
 # is consistent with a harder/higher-dimensional decision boundary making
 # that extrapolation cliff steeper. Added 0.02 to bracket the full eval
-# range so this becomes an interpolation test everywhere.
+# range so this becomes an interpolation test everywhere. Result: real but
+# partial improvement (~25-33% gap reduction at p=0.02) -- extrapolation
+# was only part of the story.
+#
+# Phase 5 fix attempt #2: the GNN still floors out at low p for d=7/d=9
+# instead of continuing to drop like MWPM, consistent with the model
+# lacking capacity/training volume for the larger code's much bigger space
+# of low-activity "still no flip" syndromes. num_train_shots_per_rate and
+# hidden_channels now scale with distance (d=3/d=5 unchanged, since those
+# already work well) to test that directly.
 distances: [3, 5, 7, 9]
 train_physical_error_rates: [0.02, 0.04, 0.08, 0.12, 0.18, 0.24]
 eval_physical_error_rates: [0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.15, 0.18, 0.22, 0.26]
-num_train_shots_per_rate: 50000
+num_train_shots_per_rate:
+  3: 50000
+  5: 50000
+  7: 100000
+  9: 200000
 num_val_shots_per_rate: 2000
 num_eval_shots: 50000
-hidden_channels: 32
+hidden_channels:
+  3: 32
+  5: 32
+  7: 40
+  9: 48
 num_layers: 3
 batch_size: 512
 epochs: 20
