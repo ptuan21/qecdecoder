@@ -148,8 +148,6 @@ model without duplicating code.
 that scales with distance), circuit-level noise at d=5 and d=7 (compute
 permitting), and writing up the benchmark as a preprint.
 
-See `.claude/plans/` (or ask) for the full roadmap.
-
 ### Training on a GPU (Google Colab)
 
 The GNN trains fine on CPU but a lot faster on GPU. To use a free Colab
